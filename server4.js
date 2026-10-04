@@ -1,6 +1,7 @@
 const express = require('express');
 const sharp = require('sharp');
 const { GifWriter } = require('omggif');
+const path = require('path');
 
 const app = express();
 const PORT = 3000;
@@ -10,6 +11,14 @@ app.use((req, res, next) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   next();
+});
+
+// 1. Serve static files (like index4.html, CSS, JS) from the current folder
+app.use(express.static(__dirname));
+
+// 2. Explicitly serve index4.html when requesting the root '/'
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index4.html'));
 });
 
 /**
