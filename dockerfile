@@ -1,20 +1,16 @@
-FROM node:20-alpine
+FROM node:20-slim
 
-# Set working directory inside the container
 WORKDIR /app
 
-# Copy dependency definitions first to leverage Docker layer caching
+# Copy package manifests first for Docker layer caching
 COPY package*.json ./
 
-# Install production dependencies
-RUN npm ci --only=production
+# Install dependencies (Express, Sharp, omggif)
+RUN npm install
 
-# Copy application source code
-COPY server4.js ./
-COPY index4.html ./
+# Copy all project files (server4.js, index4.html, etc.)
+COPY . .
 
-# Expose the application port (adjust if server4.js uses a different port)
 EXPOSE 3000
 
-# Start the application
 CMD ["node", "server4.js"]
