@@ -10,3 +10,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token eyJhIjoiNTlkZDNjNThkYzlkMzA1MzA4NDlkNjdhZmIyZjhkODMiLCJ0IjoiNGUxZDMzMDQtZTUxYi00Y2Q1LThlNGQtZDE4OTgyZTlkZDNjIiwicyI6Ik9UazVPVFJtTkRjdFkyUmhNaTAwTmpFd0xUZzBZakl0WVRsa01EUTNOakEyTUdVdyJ9
