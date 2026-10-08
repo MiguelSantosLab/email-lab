@@ -116,65 +116,53 @@ function shuffleArray(array) {
 // ==========================================
 app.get('/word-tag.png', async (req, res) => {
   try {
-    const category = req.query.type || 'names';
-    const text = (req.query.text || getWord(category)).trim();
-    
-    const fontSize = parseInt(req.query.fontSize, 10) || 16;
-    const bgColor = req.query.bg || '#000000';
+    const category = dictionaries[req.query.type] ? req.query.type : 'names';
+    const list = dictionaries[category];
+
+    const raw = req.query.text ||
+      (req.query.sample === '0'
+        ? list[Math.floor(Math.random() * list.length)]
+        : getWord(category));
+    const text = String(raw).trim().toUpperCase();   // caps only, so ink height == cap height
+
+    const capHeight = parseInt(req.query.capHeight, 10) || 12;   // X
+    const bgColor   = req.query.bg || '#000000';
     const textColor = req.query.color || '#ffffff';
 
-    const capHeight = Math.round(fontSize * 0.71);
-    const avgCharWidth = fontSize * 0.58;
-    const paddingX = Math.round(fontSize * 0.3);
+    const fontPx = Math.round(capHeight / 0.716);    // Arial/Liberation cap height ≈ 0.716 em
 
-    const calculatedWidth = Math.max(
-      Math.round(text.length * avgCharWidth + paddingX * 2),
-      20
-    );
-    const calculatedHeight = Math.max(capHeight, 12);
-    const rx = Math.round(calculatedHeight / 4);
-    const textFontSize = Math.round(fontSize * 0.8);
+    // 1. Render the text alone on a transparent canvas
+    const textPng = await sharp({
+      text: {
+        text: `<span foreground="${escapeXml(textColor)}">${escapeXml(text)}</span>`,
+        font: `Arial ${fontPx}`,
+        dpi: 72,
+        rgba: true
+      }
+    }).png().toBuffer();
 
-    const svgString = '<svg width="' + calculatedWidth + '" height="' + calculatedHeight + '" viewBox="0 0 ' + calculatedWidth + ' ' + calculatedHeight + '" xmlns="http://www.w3.org/2000/svg">' +
-      '<rect width="100%" height="100%" fill="' + bgColor + '" rx="' + rx + '"/>' +
-      '<text x="50%" y="80%" font-family="Arial, Helvetica, sans-serif" font-size="' + textFontSize + 'px" font-weight="normal" fill="' + textColor + '" text-anchor="middle">' +
-      escapeXml(text) +
-      '</text></svg>';
+    // 2. Trim to the ink: width now = exactly the letters, left and right touching the edges
+    const { data, info } = await sharp(textPng)
+      .trim()
+      .toBuffer({ resolveWithObject: true });
 
-    const pngBuffer = await sharp(Buffer.from(svgString))
+    // 3. Force the height to exactly X (fixes 1px rounding / round-letter overshoot)
+    let pipeline = sharp(data);
+    if (info.height !== capHeight) {
+      pipeline = pipeline.resize(info.width, capHeight, { fit: 'fill' });
+    }
+
+    // 4. Put it on the background colour. No padding, no rounded corners
+    const png = await pipeline
+      .flatten({ background: bgColor })
       .png({ compressionLevel: 9 })
       .toBuffer();
 
     res.setHeader('Content-Type', 'image/png');
-    return res.send(pngBuffer);
+    res.send(png);
   } catch (err) {
     console.error('Error generating word tag:', err);
     res.status(500).send('Error generating word tag');
-  }
-});
-
-// ==========================================
-// 1. STATIC BACKGROUND TILE (PNG)
-// ==========================================
-app.get('/dither-bg.png', async (req, res) => {
-  try {
-    const width = 32;
-    const height = 32;
-    const level0Index = 0;
-
-    const svgString = '<svg width="' + width + '" height="' + height + '" xmlns="http://www.w3.org/2000/svg"><defs>' +
-      getDitherPatternSVG(level0Index) +
-      '</defs><rect width="100%" height="100%" fill="url(#ditherTile)"/></svg>';
-
-    const pngBuffer = await sharp(Buffer.from(svgString))
-      .png({ compressionLevel: 9 })
-      .toBuffer();
-
-    res.setHeader('Content-Type', 'image/png');
-    return res.send(pngBuffer);
-  } catch (err) {
-    console.error('Error generating background tile:', err);
-    res.status(500).send('Error generating dither background');
   }
 });
 
